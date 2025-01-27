@@ -5,6 +5,13 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      testsOnly:
+        description: "Tests only"
+        required: true
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -46,29 +53,33 @@ jobs:
           save-if: false
 
       - name: Run all tests
+        if: inputs.testsOnly
         run: cargo test --package "$CRATE" --all-features
 
       - name: Check if we compile without any features activated
+        if: inputs.testsOnly == false
         run: cargo build --package "$CRATE" --no-default-features
 
       - name: Enforce no dependency on meta crate
-        if: env.CRATE != 'libp2p-server' && env.CRATE != 'libp2p-perf'
+        if: env.CRATE != 'libp2p-server' && env.CRATE != 'libp2p-perf' && inputs.testsOnly == false
         run: |
           cargo metadata --format-version=1 --no-deps | \
           jq -e -r '.packages[] | select(.name == "'"$CRATE"'") | .dependencies | all(.name != "libp2p")'
 
       - uses: taiki-e/cache-cargo-install-action@v2
+        if: inputs.testsOnly == false
         with:
           tool: tomlq
 
       - name: Extract version from manifest
+        if: inputs.testsOnly == false
         run: |
           CRATE_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -e -r '.packages[] | select(.name == "'"$CRATE"'") | .version')
 
           echo "CRATE_VERSION=$CRATE_VERSION" >> $GITHUB_ENV
 
       - name: Enforce version in `workspace.dependencies` matches the latest version
-        if: env.CRATE != 'libp2p'
+        if: env.CRATE != 'libp2p' && inputs.testsOnly == false
         run: |
           SPECIFIED_VERSION=$(tq "workspace.dependencies.$CRATE.version" -r --file ./Cargo.toml)
 
@@ -78,6 +89,7 @@ jobs:
           test "$CRATE_VERSION" = "$SPECIFIED_VERSION" || test "=$CRATE_VERSION" = "$SPECIFIED_VERSION"
 
       - name: Enforce version in CHANGELOG.md matches the version in manifest
+        if: inputs.testsOnly == false
         run: |
           MANIFEST_PATH=$(cargo metadata --format-version=1 --no-deps | jq -e -r '.packages[] | select(.name == "'"$CRATE"'") | .manifest_path')
           DIR_TO_CRATE=$(dirname "$MANIFEST_PATH")
@@ -95,7 +107,7 @@ jobs:
           !startsWith(github.event.pull_request.title, 'refactor') &&
           !startsWith(github.event.pull_request.title, 'deps') &&
           !startsWith(github.event.pull_request.title, 'docs') &&
-          !contains(github.event.pull_request.labels.*.name, 'internal-change')
+          !contains(github.event.pull_request.labels.*.name, 'internal-change') && inputs.testsOnly == false
         run: |
           git fetch origin master:master
           git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
@@ -106,6 +118,7 @@ jobs:
 
   wasm_tests:
     name: Run all WASM tests
+    if: inputs.testsOnly == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,6 +139,7 @@ jobs:
 
   cross:
     name: Compile on ${{ matrix.target }}
+    if: inputs.testsOnly == false
     strategy:
       matrix:
         include:
@@ -159,6 +173,7 @@ jobs:
   msrv:
     name: Compile with MSRV
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     steps:
       - uses: actions/checkout@v4
 
@@ -182,6 +197,7 @@ jobs:
 
   feature_matrix: # Test various feature combinations work correctly
     name: Compile with select features (${{ matrix.features }})
+    if: inputs.testsOnly == false
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -204,6 +220,7 @@ jobs:
 
   check-rustdoc-links:
     name: Check rustdoc intra-doc links
+    if: inputs.testsOnly == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -221,6 +238,7 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     strategy:
       fail-fast: false
       matrix:
@@ -246,6 +264,7 @@ jobs:
 
   ipfs-integration-test:
     name: IPFS Integration tests
+    if: inputs.testsOnly == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -266,6 +285,7 @@ jobs:
 
   examples:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     steps:
       - uses: actions/checkout@v4
 
@@ -297,6 +317,7 @@ jobs:
 
   semver:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     env:
       # Unset the global `RUSTFLAGS` env to allow warnings.
       # cargo-semver-checks intentionally re-locks dependency versions
@@ -314,6 +335,7 @@ jobs:
 
   rustfmt:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     steps:
       - uses: actions/checkout@v4
 
@@ -328,6 +350,7 @@ jobs:
 
   manifest_lint:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     steps:
       - uses: actions/checkout@v4
 
@@ -347,6 +370,7 @@ jobs:
 
   gather_published_crates:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     outputs:
       members: ${{ steps.cargo-metadata.outputs.members }}
     steps:
@@ -361,6 +385,7 @@ jobs:
 
   check-proto-files:
     name: Check for changes in proto files
+    if: inputs.testsOnly == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -388,6 +413,7 @@ jobs:
 
   ensure-lockfile-uptodate:
     name: Ensure that `Cargo.lock` is up-to-date
+    if: inputs.testsOnly == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -396,6 +422,7 @@ jobs:
 
   cargo-deny:
     runs-on: ubuntu-latest
+    if: inputs.testsOnly == false
     steps:
     - uses: actions/checkout@v4
     - uses: EmbarkStudios/cargo-deny-action@v2
