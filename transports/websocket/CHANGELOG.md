@@ -1,3 +1,10 @@
+## 0.45.0
+
+- fix: Return `Error::InvalidMultiaddr` when dialed to a `/dnsaddr` address
+  See [PR 5613](https://github.com/libp2p/rust-libp2p/pull/5613)
+
+<!-- Update to libp2p-core v0.43.0 -->
+
 ## 0.44.0
 
 - Implement refactored `Transport`.
