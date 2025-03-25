@@ -1,0 +1,46 @@
+name: Smoke test
+
+on:
+
+  workflow_dispatch:
+    inputs:
+      testsOnly:
+        description: "Run smoke"
+        required: true
+        type: boolean
+        default: true
+
+env:
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2 # Fail cache download after 2 minutes.
+  RUSTFLAGS: '-Dwarnings' # Never tolerate warnings.
+
+jobs:
+  test:
+    name: Test ${{ matrix.crate }}
+    runs-on: "ubuntu-latest"
+#    runs-on: "macos-latest"
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - "libp2p-webrtc"
+    env:
+      CRATE: ${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: r7kamura/rust-problem-matchers@9fe7ca9f6550e5d6358e179d451cc25ea6b54f98 #v1.5.0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        with:
+          shared-key: stable-cache
+          save-if: false
+
+      - name: Run smoke test
+        if: inputs.testsOnly
+        run: RUST_LOG=info cargo test --package "$CRATE" --all-features smoke

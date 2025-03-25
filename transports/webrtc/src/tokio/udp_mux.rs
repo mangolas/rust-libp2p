@@ -557,6 +557,7 @@ fn ufrag_from_stun_message(buffer: &[u8], local_ufrag: bool) -> Result<String, E
                 "failed to decode USERNAME from STUN message as UTF-8: {err}"
             ))),
             Ok(s) => {
+                tracing::info!("UFRAG: {}", s);
                 // s is a combination of the local_ufrag and the remote ufrag separated by `:`.
                 let res = if local_ufrag {
                     s.split(':').next()
